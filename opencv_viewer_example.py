@@ -19,7 +19,7 @@ pipeline_profile = config.resolve(pipeline_wrapper)
 device = pipeline_profile.get_device()
 device_product_line = str(device.get_info(rs.camera_info.product_line))
 
-"""
+exit() # wip breakpoint
 
 found_rgb = False
 for s in device.sensors:
@@ -76,4 +76,3 @@ finally:
 
     # Stop streaming
     pipeline.stop()
-    """
