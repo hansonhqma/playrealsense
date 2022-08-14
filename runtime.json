@@ -1,0 +1,18 @@
+{
+    "stream_info":
+    {
+        "frame_width" : "640",
+        "frame_height" : "480",
+        "framerate" : "30"
+    },
+    "hsv_data":
+    {
+        "hmin" : "0",
+        "smin" : "0",
+        "vmin" : "0",
+        "hmax" : "180",
+        "smax" : "255",
+        "vmax" : "55"
+    },
+    "colorspace_flatten_shamt" : "5"
+}
