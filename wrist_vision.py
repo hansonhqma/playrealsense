@@ -7,6 +7,8 @@ import time
 import sys
 import json
 
+import socket #TODO: stream position info to localhost
+
 from collections import deque
 
 def depth_fusion(phi:float, theta:float, depth:float) -> tuple:
