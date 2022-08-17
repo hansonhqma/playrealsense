@@ -81,6 +81,13 @@ def pixel_angles(target_pixel:tuple, frame_dim:tuple, sensor_dim:tuple, focal_le
 # setup cml argument parsing
 argument_parser = argparse.ArgumentParser()
 
+# optional arguments "record" and "debug"
+# --record:
+#   enables recording of output to output file
+#
+# --debug:
+#   outputs positional info to cml
+
 argument_parser.add_argument("--record", action='store_true', help='toggles output video recording')
 argument_parser.add_argument("--debug", action='store_true', help='toggles debug mode')
 argument_parser.add_argument("--target_ip", type=str, required=False, help='target IPv4 address to stream position info. defaults to localhost')
@@ -94,7 +101,8 @@ if not argument_parser.target_ip: # use localhost
 if not argument_parser.target_Port:
     argument_parser.target_port = 9999
 
-
+# set up UDP socket
+udp_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 
 # ingest camera and runtime info from JSON files
 CAMERA_INFO = json.load(open("d415.json"))
@@ -159,7 +167,6 @@ while True:
     depth_frame = np.asanyarray(depth_data.get_data())
     color_frame = np.asanyarray(color_data.get_data())
 
-
     # color space flatten
     flattened = (color_frame >> bit_shift) << bit_shift
 
@@ -175,27 +182,34 @@ while True:
         target_contour = max(contours, key=lambda x:x.shape[0]) 
     
         # calculate grasp point
-        grasp_point = contour_centroid(target_contour)
+        grasp_pixel_point = contour_centroid(target_contour)
 
         # calculate azimuth and altitude angles of grasp point
         
-        azimuth, altitude = pixel_angles(grasp_point, )
+        azimuth, altitude = pixel_angles(grasp_pixel_point, (stream_width, stream_height), (sensor_width, sensor_height), focal_length)
 
         # TODO: make this a function
 
         color_frame = cv.drawContours(color_frame, [target_contour], 0, (0,0,255), 3)
 
-        d = depth_data.get_distance(target_center[0], target_center[1])
+        distance_readout = depth_data.get_distance(grasp_pixel_point[0], grasp_pixel_point[1])
 
-        cc = depth_fusion(angle_from_y_axis, angle_from_x_axis, d)
-        color_frame = cv.line(color_frame, frame_center, target_center, (0,255,255), 2)
-        color_frame = cv.putText(color_frame, "x:{:.3f}, y:{:.3f}, z:{:.3f}".format(cc[0], cc[1], cc[2]), frame_center, cv.FONT_HERSHEY_SIMPLEX, 0.5, (0,255, 255), 1)
+        grasp_coordinate = depth_fusion(azimuth, altitude, distance_readout)
 
-        
+        # stream coordinate over UDP socket
+        coordinate_packet = bytes(grasp_coordinate)
+        udp_socket.sendto(coordinate_packet, (argument_parser.target_ip, argument_parser.target_port))
+
+        if argument_parser.debug: # print coordinate and make color frame
+            print(grasp_coordinate)
+            color_frame = cv.line(color_frame, frame_center, grasp_pixel_point, (0,255,255), 2)
+            color_frame = cv.putText(color_frame, "x:{:.3f}, y:{:.3f}, z:{:.3f}".format(grasp_coordinate[0], grasp_coordinate[1], grasp_coordinate[2]), frame_center, cv.FONT_HERSHEY_SIMPLEX, 0.5, (0,255, 255), 1)
+
     if argument_parser.record:
         writer.write(color_frame)
 
-    cv.imshow("frame", color_frame)
+    if argument_parser.debug:
+        cv.imshow("frame", color_frame)
 
     time_delta = (time.clock_gettime_ns(time.CLOCK_REALTIME)-start_time)/1e9
     FRAMERATELOG.append(1/time_delta)
