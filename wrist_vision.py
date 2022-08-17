@@ -1,7 +1,9 @@
+# cv stuff
 import cv2 as cv
 import cvmanip as cvm
 import pyrealsense2 as rs
 
+import argparse
 import numpy as np
 import time
 import sys
@@ -76,9 +78,23 @@ def pixel_angles(target_pixel:tuple, frame_dim:tuple, sensor_dim:tuple, focal_le
     return np.arctan(rel_x/focal_length), np.arctan(rel_y/focal_length)
     
 
-# set modes
-record = '-r' in sys.argv
-debug = '-d' in sys.argv
+# setup cml argument parsing
+argument_parser = argparse.ArgumentParser()
+
+argument_parser.add_argument("--record", action='store_true', help='toggles output video recording')
+argument_parser.add_argument("--debug", action='store_true', help='toggles debug mode')
+argument_parser.add_argument("--target_ip", type=str, required=False, help='target IPv4 address to stream position info. defaults to localhost')
+argument_parser.add_argument("--target_port", type=int, required=False, help="target port number to stream position info. defaults to 9999")
+
+argument_parser.parse_args() # get args
+
+# parse UDP stream ip and port
+if not argument_parser.target_ip: # use localhost
+    argument_parser.target_ip = "127.0.0.1"
+if not argument_parser.target_Port:
+    argument_parser.target_port = 9999
+
+
 
 # ingest camera and runtime info from JSON files
 CAMERA_INFO = json.load(open("d415.json"))
@@ -124,7 +140,7 @@ pipeline.start(config) # start pipeline
 
 frame_center = (stream_width//2, stream_height//2)
 
-if record:
+if argument_parser.record:
     writer = cv.VideoWriter('output.mp4', cv.VideoWriter_fourcc(*"mp4v"), stream_framerate, (stream_width, stream_height))
 
 while True:
@@ -176,7 +192,7 @@ while True:
         color_frame = cv.putText(color_frame, "x:{:.3f}, y:{:.3f}, z:{:.3f}".format(cc[0], cc[1], cc[2]), frame_center, cv.FONT_HERSHEY_SIMPLEX, 0.5, (0,255, 255), 1)
 
         
-    if record:
+    if argument_parser.record:
         writer.write(color_frame)
 
     cv.imshow("frame", color_frame)
@@ -187,7 +203,7 @@ while True:
     if cv.waitKey(1) & 0xFF == ord('q'):
         break
 
-if record:
+if argument_parser.record:
     writer.release()
 
 print("Average framerate = {:2f}".format(np.sum(FRAMERATELOG)/len(FRAMERATELOG)))
